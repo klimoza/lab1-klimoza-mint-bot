@@ -226,8 +226,8 @@ def help(message):
             "<u><b>All available commands:</b></u>\n"
             "/get_feed <em>network</em> <em>period</em>: Display feed for a given period \n"
             # "network = mainnet | testnet\nperiod = 1m | 5m | 15m | 30m | 1h | 6h | 12h | 1d\n"
-            "/notify_on: Turn on notifications for newcomer mints\n"
-            "/notify_off: Turn off notifications for newcomer mints\n"
+            "/notify_on <em>network</em>: Turn on notifications for newcomer mints\n"
+            "/notify_off <em>network</em>: Turn off notifications for newcomer mints\n"
             "/help: Display help",
             parse_mode="HTML",
         )
@@ -347,6 +347,8 @@ def get_feed(message):
     msg = ""
     for (collection, value) in feed:
         msg += f"Collection: {collection}\nMints: {value}\n================\n"
+    if len(feed) == 0:
+        msg = "No NFT's were minted."
 
     bot.send_message(message.chat.id, msg)
 
@@ -409,10 +411,15 @@ def get_new_transactions(net):
 
     new_max_time = 0
     mints = cur.fetchall()
+    print(len(mints))
+    receipts = set()
     for (id, time, contract, owner_id, _, args) in mints:
         new_max_time = max(new_max_time, time)
         if not check_args(args):
             continue
+        if id in receipts:
+            continue
+        receipts.add(id)
 
         (collection, title, description, media) = get_metadata(args, contract)
         msg = f"NFT MINTED!\n{owner_id} just minted NFT from {collection} collection on {net}"
