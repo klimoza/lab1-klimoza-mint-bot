@@ -1,1 +1,1 @@
-watch -n 3 ./listener.py
+watch -n 2 ./listener.py

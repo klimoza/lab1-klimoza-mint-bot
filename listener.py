@@ -1,5 +1,7 @@
 #! /usr/bin/env python3
 
+import json
+import requests
 import time
 from datetime import datetime
 import psycopg2
@@ -121,13 +123,13 @@ def update_offset(new_offset):
 def send_message_to_users(message):
     users = get_users()
     for user in users:
-        bot.send_message(int(user[0]), message)
+        bot.send_message(int(user[0]), message, parse_mode='HTML')
 
 
 def send_message_to_test_users(message):
     test_users = get_test_users()
     for user in test_users:
-        bot.send_message(int(user[0]), message)
+        bot.send_message(int(user[0]), message, parse_mode='HTML')
 
 
 def get_network(net):
@@ -160,6 +162,10 @@ def get_period(period):
         return int(time.time() * second_to_nanoseconds - minute_to_nanoseconds * 30)
     elif period == "1h":
         return int(time.time() * second_to_nanoseconds - hour_to_nanoseconds)
+    elif period == "2h":
+        return int(time.time() * second_to_nanoseconds - hour_to_nanoseconds * 2)
+    elif period == "3h":
+        return int(time.time() * second_to_nanoseconds - hour_to_nanoseconds * 3)
     elif period == "6h":
         return int(time.time() * second_to_nanoseconds - hour_to_nanoseconds * 6)
     elif period == "12h":
@@ -177,31 +183,14 @@ def check_args(args):
         and args["method_name"] == "nft_mint"
     )
 
-
-def get_metadata(args, contract):
-    if (
-        "metadata" in args["args_json"]
-        and "collection" in args["args_json"]["metadata"]
-    ):
-        collection = args["args_json"]["metadata"]["collection"]
+def get_collection(contract, net):
+    pload = {"jsonrpc": "2.0", "id": "dontcare", "method": "query", "params": {"request_type": "call_function",  "finality": "final", "account_id": contract, "method_name": "nft_metadata", "args_base64": "e30="}}
+    if net == "testnet":
+        r = requests.post("https://rpc.testnet.near.org", json=pload)
     else:
-        collection = contract
-    if "metadata" in args["args_json"] and "title" in args["args_json"]["metadata"]:
-        title = args["args_json"]["metadata"]["title"]
-    else:
-        title = None
-    if (
-        "metadata" in args["args_json"]
-        and "description" in args["args_json"]["metadata"]
-    ):
-        description = args["args_json"]["metadata"]["description"]
-    else:
-        description = None
-    if "media" in args["args_json"] and "description" in args["args_json"]["metadata"]:
-        media = args["args_json"]["metadata"]["media"]
-    else:
-        media = None
-    return (collection, title, description, media)
+        r = requests.post("https://rpc.mainnet.near.org", json=pload)
+    result = json.loads(bytearray(r.json()["result"]["result"]).decode("utf-8"))
+    return result["name"]
 
 
 def cmp(value):
@@ -278,7 +267,7 @@ def notify_off(message):
                 """
             )
         bot.send_message(
-            message.chat.id, "Notifications turned <b>off</b>", parse_mode="HTML"
+            message.chat.id, "Notifications(mainnet) turned <b>off</b>", parse_mode="HTML"
         )
     elif len(args) == 2 and args[1] == "testnet":
         with sqlite3.connect(db_file) as conn:
@@ -289,25 +278,25 @@ def notify_off(message):
                 """
             )
         bot.send_message(
-            message.chat.id, "Notifications turned <b>off</b>", parse_mode="HTML"
+            message.chat.id, "Notifications(testnet) turned <b>off</b>", parse_mode="HTML"
         )
     else:
         bot.send_message(message.chat.id, "Try again!")
 
 
 def get_feed(message):
-    args = message.text.split()[1:]
-    if len(args) != 2:
+    message_args = message.text.split()[1:]
+    if len(message_args) != 2:
         bot.send_message(message.chat.id, "Try again!(Wrong number of arguments)")
         return
 
     try:
-        conn = get_network(args[0])
+        conn = get_network(message_args[0])
     except:
         bot.send_message(message.chat.id, "Try again!(Wrong network type)")
         return
     try:
-        timestamp = get_period(args[1])
+        timestamp = get_period(message_args[1])
     except:
         bot.send_message(message.chat.id, "Try again!(Wrong period type)")
         return
@@ -337,15 +326,15 @@ def get_feed(message):
         if not check_args(args):
             continue
 
-        (collection, title, description, media) = get_metadata(args, contract)
-        number_of_mints[collection] = number_of_mints.setdefault(collection, 0) + 1
+        number_of_mints[contract] = number_of_mints.setdefault(contract, 0) + 1
 
     feed = list(number_of_mints.items())
     feed.sort(key=cmp, reverse=True)
     feed = feed[:20]
 
     msg = ""
-    for (collection, value) in feed:
+    for (contract, value) in feed:
+        collection = get_collection(contract, message_args[0])
         msg += f"Collection: {collection}\nMints: {value}\n================\n"
     if len(feed) == 0:
         msg = "No NFT's were minted."
@@ -411,18 +400,13 @@ def get_new_transactions(net):
 
     new_max_time = 0
     mints = cur.fetchall()
-    print(len(mints))
-    receipts = set()
     for (id, time, contract, owner_id, _, args) in mints:
         new_max_time = max(new_max_time, time)
         if not check_args(args):
             continue
-        if id in receipts:
-            continue
-        receipts.add(id)
 
-        (collection, title, description, media) = get_metadata(args, contract)
-        msg = f"NFT MINTED!\n{owner_id} just minted NFT from {collection} collection on {net}"
+        collection = get_collection(contract, net)
+        msg = f"NFT MINTED!\n<b>{owner_id}</b> just minted NFT from <b>{collection}</b> collection on {net}"
         if net == "mainnet":
             send_message_to_users(msg)
         else:
