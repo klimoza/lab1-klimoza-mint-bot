@@ -410,7 +410,7 @@ def get_new_transactions(net):
         nm[(owner_id, collection)] = nm.setdefault((owner_id, collection), 0) + 1
     
     for ((owner_id, collection), num) in nm.items():
-        if num == 1:
+        if num != 1:
             msg = f"NFT MINTED!\n<b>{owner_id}</b> just minted {num} NFT's from <b>{collection}</b> collection on {net}"
         else:
             msg = f"NFT MINTED!\n<b>{owner_id}</b> just minted NFT from <b>{collection}</b> collection on {net}"
