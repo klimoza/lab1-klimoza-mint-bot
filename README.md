@@ -1,7 +1,7 @@
 # **Mint Listener Bot**
 
 ## **About**
-This is a Telegram Bot that tracks newcomer mints happening in NEAR blockchain. It includes additional feautures like displaying mint statistics for the given period and support for extending functionality.
+This is a [Telegram Bot](https://t.me/NFTListenerBot) that tracks newcomer mints happening in NEAR blockchain. It includes additional feautures like displaying mint statistics for the given period and support for extending functionality.
 
 ## **Commands available**
 ```
