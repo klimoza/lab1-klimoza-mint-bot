@@ -400,17 +400,25 @@ def get_new_transactions(net):
 
     new_max_time = 0
     mints = cur.fetchall()
+    nm = dict()
     for (id, time, contract, owner_id, _, args) in mints:
         new_max_time = max(new_max_time, time)
         if not check_args(args):
             continue
 
         collection = get_collection(contract, net)
-        msg = f"NFT MINTED!\n<b>{owner_id}</b> just minted NFT from <b>{collection}</b> collection on {net}"
+        nm[(owner_id, collection)] = nm.setdefault((owner_id, collection), 0) + 1
+    
+    for ((owner_id, collection), num) in nm.items():
+        if num == 1:
+            msg = f"NFT MINTED!\n<b>{owner_id}</b> just minted {num} NFT's from <b>{collection}</b> collection on {net}"
+        else:
+            msg = f"NFT MINTED!\n<b>{owner_id}</b> just minted NFT from <b>{collection}</b> collection on {net}"
         if net == "mainnet":
             send_message_to_users(msg)
         else:
             send_message_to_test_users(msg)
+
 
     if new_max_time > int(cur_max_time):
         if net == "mainnet":
