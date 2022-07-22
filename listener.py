@@ -189,6 +189,8 @@ def get_collection(contract, net):
         r = requests.post("https://rpc.testnet.near.org", json=pload)
     else:
         r = requests.post("https://rpc.mainnet.near.org", json=pload)
+    if "result" not in r.json() or "result" not in r.json()["result"]:
+        return contract
     result = json.loads(bytearray(r.json()["result"]["result"]).decode("utf-8"))
     return result["name"]
 
